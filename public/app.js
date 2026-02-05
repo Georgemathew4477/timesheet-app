@@ -191,7 +191,8 @@ form.addEventListener("submit", async (e) => {
     if (!blob) throw new Error("Failed to generate PNG");
 
     const upload = new FormData();
-    const safeName = (data.name || "employee").replace(/\s+/g, "_");
+    const rawName = String(data?.name ?? "").trim();
+    const safeName = (rawName.length ? rawName : "employee").replace(/\s+/g, "_");
     upload.append("file", blob, `timesheet_${safeName}_${Date.now()}.png`);
     upload.append("meta", JSON.stringify(data));
 
