@@ -19,7 +19,7 @@ const TEMPLATE_URL = "/templat.png";
 const COORDS = {
   // Header lines
   jobRoleTop: { x: 500, y: 235 },
-  name: { x: 80 , y: 235 },
+  name: { x: 100 , y: 235 },
   careHome: { x: 895, y: 235 },
   
 
