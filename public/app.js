@@ -16,30 +16,34 @@ const TEMPLATE_URL = "/templat.png";
  * We enforce that in renderTimesheet() by setting preview.width/height from template.
  */
 const COORDS = {
-  week: { x: 1960, y: 265 },
-  name: { x: 260, y: 360 },
-  jobRoleTop: { x: 980, y: 360 },
-  careHome: { x: 1750, y: 360 },
+  // header lines
+  name:      { x: 505, y: 235 },
+  jobRoleTop:{ x: 236, y: 239 }, // (you clicked this - keep as is)
+  careHome:  { x: 895, y: 232 },
 
-  // Single row (Row 1)
-  rowY: 580,
+  // row 1 baseline y (all table text sits on this y)
+  rowY: 402,
 
   colX: {
-    slno: 120,
-    date: 260,
-    start: 520,
-    end: 720,
-    break: 920,
-    total: 1150,
-    jobRole: 1380,
-    remarks: 1980,
+  slno: 109,
+  date: 109,
+  start: 245,
+  end: 350,
+  break: 475,
+  total: 583,
+  jobRole: 698,
+  remarks: 1033,
 
-    // Signature box
-    signBoxX: 1600,
-    signBoxY: 520,
-    signBoxW: 360,
-    signBoxH: 120,
-  },
+  signBoxX: 847,
+  signBoxY: 370,
+  signBoxW: 170,
+  signBoxH: 70,
+},
+
+
+
+
+
 };
 
 async function loadTemplate() {
@@ -153,14 +157,18 @@ async function renderTimesheet(data) {
   pctx.clearRect(0, 0, preview.width, preview.height);
   pctx.drawImage(template, 0, 0);
 
-  // Header fields
-  drawText(data.week, COORDS.week.x, COORDS.week.y);
+  // Header fields (week optional — remove if not needed)
+  if (data.week && String(data.week).trim()) {
+    drawText(data.week, COORDS.week.x, COORDS.week.y);
+  }
+
   drawText(data.name, COORDS.name.x, COORDS.name.y);
   drawText(data.jobRoleTop, COORDS.jobRoleTop.x, COORDS.jobRoleTop.y);
   drawText(data.careHome, COORDS.careHome.x, COORDS.careHome.y);
 
   // Single row text
   const y = COORDS.rowY;
+
   drawText("1", COORDS.colX.slno, y);
   drawText(formatDateForSheet(data.date), COORDS.colX.date, y);
   drawText(data.startTime, COORDS.colX.start, y);
@@ -168,7 +176,11 @@ async function renderTimesheet(data) {
   drawText(String(data.breakMins ?? ""), COORDS.colX.break, y);
   drawText(String(data.totalHours ?? ""), COORDS.colX.total, y);
   drawText(data.jobRoleTop, COORDS.colX.jobRole, y);
-  drawText(data.remarks, COORDS.colX.remarks, y);
+
+  // ✅ Draw remarks ONLY if present
+  if (data.remarks && String(data.remarks).trim()) {
+    drawText(data.remarks, COORDS.colX.remarks, y);
+  }
 
   // Signature
   const sigImg = await canvasToImage(sigPad);
@@ -180,6 +192,7 @@ async function renderTimesheet(data) {
     COORDS.colX.signBoxH
   );
 }
+
 
 function canvasToBlob(canvas, type = "image/png") {
   return new Promise((resolve) => canvas.toBlob(resolve, type));
