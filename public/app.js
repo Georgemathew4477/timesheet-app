@@ -8,6 +8,7 @@ const sigPad = document.getElementById("sigPad");
 const sctx = sigPad.getContext("2d");
 const clearSigBtn = document.getElementById("clearSig");
 
+// ✅ fixed filename
 const TEMPLATE_URL = "/templat.png";
 
 /**
@@ -16,36 +17,30 @@ const TEMPLATE_URL = "/templat.png";
  * We enforce that in renderTimesheet() by setting preview.width/height from template.
  */
 const COORDS = {
-  // header lines
-  name:      { x: 455, y: 235 },
-  jobRoleTop:{ x: 236, y: 239 }, // (you clicked this - keep as is)
-  careHome:  { x: 895, y: 232 },
+  // Header lines
+  name: { x: 455, y: 235 },
+  jobRoleTop: { x: 236, y: 239 },
+  careHome: { x: 895, y: 232 },
 
-  // row 1 baseline y (all table text sits on this y)
+  // Row 1 baseline y
   rowY: 402,
 
   colX: {
-  slno: 109,
-  date: 109,
-  start: 245,
-  end: 350,
-  break: 475,
-  total: 583,
-  jobRole: 698,
-  remarks: 1033,
+    slno: 109,
+    date: 109,
+    start: 245,
+    end: 350,
+    break: 475,
+    total: 583,
+    jobRole: 698,
+    remarks: 1033,
 
-  signBoxX: 847,
-  signBoxY: 370,
-//  signBoxW: 170,
-//  signBoxH: 70,
-  signBoxW: 200,
-  signBoxH: 80,
-},
-
-
-
-
-
+    // Signature box
+    signBoxX: 847,
+    signBoxY: 370,
+    signBoxW: 200,
+    signBoxH: 80,
+  },
 };
 
 async function loadTemplate() {
@@ -62,7 +57,6 @@ async function loadTemplate() {
 }
 
 function formatDateForSheet(yyyy_mm_dd) {
-  // input: "2026-02-05" -> output: "05/02/2026"
   if (!yyyy_mm_dd) return "";
   const [y, m, d] = String(yyyy_mm_dd).split("-");
   if (!y || !m || !d) return String(yyyy_mm_dd);
@@ -72,7 +66,7 @@ function formatDateForSheet(yyyy_mm_dd) {
 function drawText(value, x, y, font = "30px Arial") {
   pctx.font = font;
   pctx.fillStyle = "#111";
-  pctx.textBaseline = "middle"; // easier alignment than alphabetic
+  pctx.textBaseline = "middle";
   pctx.fillText(String(value ?? ""), x, y);
 }
 
@@ -82,7 +76,7 @@ function initSignaturePad() {
   sctx.lineCap = "round";
   sctx.strokeStyle = "#111";
 
-  // Fill background white
+  // white background
   sctx.fillStyle = "#fff";
   sctx.fillRect(0, 0, sigPad.width, sigPad.height);
 
@@ -148,7 +142,7 @@ preview.addEventListener("click", (e) => {
   console.log("COORD:", { x, y });
 });
 
-
+/** Make signature background transparent (remove white box) */
 function signatureToTransparentImage(canvas) {
   const tmp = document.createElement("canvas");
   tmp.width = canvas.width;
@@ -162,43 +156,37 @@ function signatureToTransparentImage(canvas) {
 
   // Make near-white pixels transparent
   for (let i = 0; i < d.length; i += 4) {
-    const r = d[i], g = d[i + 1], b = d[i + 2];
-    if (r > 245 && g > 245 && b > 245) {
-      d[i + 3] = 0; // alpha = 0
-    }
+    const r = d[i],
+      g = d[i + 1],
+      b = d[i + 2];
+    if (r > 245 && g > 245 && b > 245) d[i + 3] = 0;
   }
 
   tctx.putImageData(imgData, 0, 0);
-
   return canvasToImage(tmp);
 }
-
 
 /** ---------------- Render final image ---------------- */
 async function renderTimesheet(data) {
   const template = await loadTemplate();
 
-  // ✅ Force preview canvas to match template pixels exactly
+  // Match preview to template pixels
   preview.width = template.naturalWidth;
   preview.height = template.naturalHeight;
 
   pctx.clearRect(0, 0, preview.width, preview.height);
   pctx.drawImage(template, 0, 0);
 
-  // Header fields (week optional — remove if not needed)
-  if (data.week && String(data.week).trim()) {
-    drawText(data.week, COORDS.week.x, COORDS.week.y);
-  }
-
-// Header fields (slightly bigger)
+  // Header fields
   const headerFont = "30px Arial";
   drawText(data.name, COORDS.name.x, COORDS.name.y, headerFont);
   drawText(data.jobRoleTop, COORDS.jobRoleTop.x, COORDS.jobRoleTop.y, headerFont);
   drawText(data.careHome, COORDS.careHome.x, COORDS.careHome.y, headerFont);
 
-
-  // Row fields (smaller so it fits inside boxes)
+  // Row fields (smaller so it fits)
   const rowFont = "24px Arial";
+  const y = COORDS.rowY;
+
   drawText("1", COORDS.colX.slno, y, rowFont);
   drawText(formatDateForSheet(data.date), COORDS.colX.date, y, rowFont);
   drawText(data.startTime, COORDS.colX.start, y, rowFont);
@@ -207,17 +195,12 @@ async function renderTimesheet(data) {
   drawText(String(data.totalHours ?? ""), COORDS.colX.total, y, rowFont);
   drawText(data.jobRoleTop, COORDS.colX.jobRole, y, rowFont);
 
+  // Remarks optional
   if (data.remarks && String(data.remarks).trim()) {
     drawText(data.remarks, COORDS.colX.remarks, y, rowFont);
   }
 
-
-  // ✅ Draw remarks ONLY if present
-  if (data.remarks && String(data.remarks).trim()) {
-    drawText(data.remarks, COORDS.colX.remarks, y);
-  }
-
-  // Signature
+  // Signature (transparent background)
   const sigImg = await signatureToTransparentImage(sigPad);
   pctx.drawImage(
     sigImg,
@@ -227,7 +210,6 @@ async function renderTimesheet(data) {
     COORDS.colX.signBoxH
   );
 }
-
 
 function canvasToBlob(canvas, type = "image/png") {
   return new Promise((resolve) => canvas.toBlob(resolve, type));
@@ -264,7 +246,6 @@ form.addEventListener("submit", async (e) => {
 
     const res = await fetch("/api/submit", { method: "POST", body: upload });
 
-    // ✅ safer response parsing
     const text = await res.text();
     let out = {};
     try { out = JSON.parse(text); } catch {}
@@ -273,7 +254,7 @@ form.addEventListener("submit", async (e) => {
 
     statusEl.textContent = "Submitted ✅";
     form.reset();
-    // (optional) keep signature, or clear it:
+    // Optional: clear signature after submit
     // clearSigBtn.click();
   } catch (err) {
     console.error(err);
