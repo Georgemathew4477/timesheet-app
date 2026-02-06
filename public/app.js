@@ -18,8 +18,8 @@ const TEMPLATE_URL = "/templat.png";
  */
 const COORDS = {
   // Header lines
-  jobRoleTop: { x: 455, y: 235 },
-  name: { x: 236, y: 239 },
+  jobRoleTop: { x: 500, y: 235 },
+  name: { x: 180, y: 239 },
   careHome: { x: 895, y: 232 },
   
 
@@ -27,8 +27,8 @@ const COORDS = {
   rowY: 402,
 
   colX: {
-    slno: 109,
-    date: 109,
+    
+    date: 103,
     start: 245,
     end: 350,
     break: 475,
