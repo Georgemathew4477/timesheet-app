@@ -19,7 +19,7 @@ const TEMPLATE_URL = "/templat.png";
 const COORDS = {
   // Header lines
   jobRoleTop: { x: 500, y: 235 },
-  name: { x: 120, y: 235 },
+  name: { x: 80 , y: 235 },
   careHome: { x: 895, y: 235 },
   
 
@@ -166,6 +166,36 @@ function signatureToTransparentImage(canvas) {
   tctx.putImageData(imgData, 0, 0);
   return canvasToImage(tmp);
 }
+
+
+function calculateTotalHours() {
+  const start = document.querySelector('[name="startTime"]').value;
+  const end = document.querySelector('[name="endTime"]').value;
+  const breakMins = Number(document.querySelector('[name="breakMins"]').value || 0);
+
+  if (!start || !end) return;
+
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+
+  let startMin = sh * 60 + sm;
+  let endMin = eh * 60 + em;
+
+  // Handle overnight shifts
+  if (endMin < startMin) endMin += 24 * 60;
+
+  let worked = endMin - startMin - breakMins;
+  if (worked < 0) worked = 0;
+
+  const hours = Math.round((worked / 60) * 4) / 4; // round to .25
+  document.querySelector('[name="totalHours"]').value = hours;
+}
+
+// Recalculate when inputs change
+["startTime", "endTime", "breakMins"].forEach(name => {
+  document.querySelector(`[name="${name}"]`)
+    .addEventListener("change", calculateTotalHours);
+});
 
 /** ---------------- Render final image ---------------- */
 async function renderTimesheet(data) {

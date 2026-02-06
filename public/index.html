@@ -260,14 +260,29 @@
           </div>
           <div>
             <label>Break Duration (mins)</label>
-            <input name="breakMins" type="number" step="1" min="0" value="0" required />
+            <select name="breakMins" required>
+             <option value="0">0 mins</option>
+             <option value="15">15 mins</option>
+             <option value="30">30 mins</option>
+             <option value="45">45 mins</option>
+             <option value="60">60 mins</option>
+            </select>
+          
           </div>
         </div>
 
         <div class="grid">
           <div>
             <label>Total Hours Worked</label>
-            <input name="totalHours" type="number" step="0.25" min="0" required />
+            <input
+              name="totalHours"
+              type="number"
+              step="0.25"
+              min="0"
+              readonly
+              placeholder="Auto calculated"
+            />
+                      
           </div>
           <div>
             <label>Remarks </label>
