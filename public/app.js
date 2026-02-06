@@ -12,8 +12,8 @@ const TEMPLATE_URL = "/template.png";
 
 /**
  * IMPORTANT:
- * These coordinates are tuned for your A4 landscape-style template.
- * If anything is off by a little, we adjust these numbers.
+ * These coordinates assume the preview canvas is the SAME pixel size as the template image.
+ * We enforce that in renderTimesheet() by setting preview.width/height from template.
  */
 const COORDS = {
   week: { x: 1960, y: 265 },
@@ -32,11 +32,13 @@ const COORDS = {
     break: 920,
     total: 1150,
     jobRole: 1380,
-    signBoxX: 1600,   // where signature box starts visually
-    signBoxY: 520,    // top of signature cell area
-    signBoxW: 360,    // width of signature cell area
-    signBoxH: 120,    // height of signature cell area
     remarks: 1980,
+
+    // Signature box
+    signBoxX: 1600,
+    signBoxY: 520,
+    signBoxW: 360,
+    signBoxH: 120,
   },
 };
 
@@ -44,33 +46,37 @@ async function loadTemplate() {
   const img = new Image();
   img.crossOrigin = "anonymous";
   img.src = TEMPLATE_URL;
+
   await new Promise((res, rej) => {
     img.onload = res;
-    img.onerror = rej;
+    img.onerror = () => rej(new Error("Failed to load template.png"));
   });
+
   return img;
 }
 
 function formatDateForSheet(yyyy_mm_dd) {
   // input: "2026-02-05" -> output: "05/02/2026"
   if (!yyyy_mm_dd) return "";
-  const [y, m, d] = yyyy_mm_dd.split("-");
+  const [y, m, d] = String(yyyy_mm_dd).split("-");
+  if (!y || !m || !d) return String(yyyy_mm_dd);
   return `${d}/${m}/${y}`;
 }
 
-function drawText(value, x, y, font = "32px Arial") {
+function drawText(value, x, y, font = "30px Arial") {
   pctx.font = font;
   pctx.fillStyle = "#111";
-  pctx.textBaseline = "alphabetic";
+  pctx.textBaseline = "middle"; // easier alignment than alphabetic
   pctx.fillText(String(value ?? ""), x, y);
 }
 
 /** ---------------- Signature Pad ---------------- */
 function initSignaturePad() {
-  // Signature style
   sctx.lineWidth = 3;
   sctx.lineCap = "round";
   sctx.strokeStyle = "#111";
+
+  // Fill background white
   sctx.fillStyle = "#fff";
   sctx.fillRect(0, 0, sigPad.width, sigPad.height);
 
@@ -81,7 +87,7 @@ function initSignaturePad() {
     const rect = sigPad.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    // scale to canvas coords
+
     const x = ((clientX - rect.left) / rect.width) * sigPad.width;
     const y = ((clientY - rect.top) / rect.height) * sigPad.height;
     return { x, y };
@@ -97,10 +103,12 @@ function initSignaturePad() {
     if (!drawing) return;
     e.preventDefault();
     const pos = getPos(e);
+
     sctx.beginPath();
     sctx.moveTo(last.x, last.y);
     sctx.lineTo(pos.x, pos.y);
     sctx.stroke();
+
     last = pos;
   }
 
@@ -126,13 +134,24 @@ function initSignaturePad() {
 }
 initSignaturePad();
 
+/** ---------------- Click-to-get-coordinates helper ---------------- */
+preview.addEventListener("click", (e) => {
+  const rect = preview.getBoundingClientRect();
+  const x = Math.round(((e.clientX - rect.left) / rect.width) * preview.width);
+  const y = Math.round(((e.clientY - rect.top) / rect.height) * preview.height);
+  console.log("COORD:", { x, y });
+});
+
 /** ---------------- Render final image ---------------- */
 async function renderTimesheet(data) {
   const template = await loadTemplate();
 
-  // Match template into preview canvas
+  // ✅ Force preview canvas to match template pixels exactly
+  preview.width = template.naturalWidth;
+  preview.height = template.naturalHeight;
+
   pctx.clearRect(0, 0, preview.width, preview.height);
-  pctx.drawImage(template, 0, 0, preview.width, preview.height);
+  pctx.drawImage(template, 0, 0);
 
   // Header fields
   drawText(data.week, COORDS.week.x, COORDS.week.y);
@@ -143,17 +162,15 @@ async function renderTimesheet(data) {
   // Single row text
   const y = COORDS.rowY;
   drawText("1", COORDS.colX.slno, y);
-
   drawText(formatDateForSheet(data.date), COORDS.colX.date, y);
   drawText(data.startTime, COORDS.colX.start, y);
   drawText(data.endTime, COORDS.colX.end, y);
-  drawText(String(data.breakMins), COORDS.colX.break, y);
-  drawText(String(data.totalHours), COORDS.colX.total, y);
-  drawText(data.jobRoleTop, COORDS.colX.jobRole, y); // reuse job role
+  drawText(String(data.breakMins ?? ""), COORDS.colX.break, y);
+  drawText(String(data.totalHours ?? ""), COORDS.colX.total, y);
+  drawText(data.jobRoleTop, COORDS.colX.jobRole, y);
   drawText(data.remarks, COORDS.colX.remarks, y);
 
-  // Place signature image into the “INCHARGE SIGN” cell
-  // We crop the signature pad and scale it into the signature box.
+  // Signature
   const sigImg = await canvasToImage(sigPad);
   pctx.drawImage(
     sigImg,
@@ -190,19 +207,26 @@ form.addEventListener("submit", async (e) => {
     const blob = await canvasToBlob(preview, "image/png");
     if (!blob) throw new Error("Failed to generate PNG");
 
-    const upload = new FormData();
     const rawName = String(data?.name ?? "").trim();
     const safeName = (rawName.length ? rawName : "employee").replace(/\s+/g, "_");
+
+    const upload = new FormData();
     upload.append("file", blob, `timesheet_${safeName}_${Date.now()}.png`);
     upload.append("meta", JSON.stringify(data));
 
     const res = await fetch("/api/submit", { method: "POST", body: upload });
-    const out = await res.json();
-    if (!res.ok) throw new Error(out?.error || "Upload failed");
+
+    // ✅ safer response parsing
+    const text = await res.text();
+    let out = {};
+    try { out = JSON.parse(text); } catch {}
+
+    if (!res.ok) throw new Error(out?.error || text || "Upload failed");
 
     statusEl.textContent = "Submitted ✅";
     form.reset();
-    // keep signature unless you want to clear it automatically
+    // (optional) keep signature, or clear it:
+    // clearSigBtn.click();
   } catch (err) {
     console.error(err);
     statusEl.textContent = `Error: ${err.message}`;
