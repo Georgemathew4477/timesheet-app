@@ -17,7 +17,7 @@ const TEMPLATE_URL = "/templat.png";
  */
 const COORDS = {
   // header lines
-  name:      { x: 505, y: 235 },
+  name:      { x: 455, y: 235 },
   jobRoleTop:{ x: 236, y: 239 }, // (you clicked this - keep as is)
   careHome:  { x: 895, y: 232 },
 
@@ -36,8 +36,10 @@ const COORDS = {
 
   signBoxX: 847,
   signBoxY: 370,
-  signBoxW: 170,
-  signBoxH: 70,
+//  signBoxW: 170,
+//  signBoxH: 70,
+  signBoxW: 200,
+  signBoxH: 80,
 },
 
 
@@ -146,6 +148,32 @@ preview.addEventListener("click", (e) => {
   console.log("COORD:", { x, y });
 });
 
+
+function signatureToTransparentImage(canvas) {
+  const tmp = document.createElement("canvas");
+  tmp.width = canvas.width;
+  tmp.height = canvas.height;
+
+  const tctx = tmp.getContext("2d");
+  tctx.drawImage(canvas, 0, 0);
+
+  const imgData = tctx.getImageData(0, 0, tmp.width, tmp.height);
+  const d = imgData.data;
+
+  // Make near-white pixels transparent
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i + 1], b = d[i + 2];
+    if (r > 245 && g > 245 && b > 245) {
+      d[i + 3] = 0; // alpha = 0
+    }
+  }
+
+  tctx.putImageData(imgData, 0, 0);
+
+  return canvasToImage(tmp);
+}
+
+
 /** ---------------- Render final image ---------------- */
 async function renderTimesheet(data) {
   const template = await loadTemplate();
@@ -162,20 +190,27 @@ async function renderTimesheet(data) {
     drawText(data.week, COORDS.week.x, COORDS.week.y);
   }
 
-  drawText(data.name, COORDS.name.x, COORDS.name.y);
-  drawText(data.jobRoleTop, COORDS.jobRoleTop.x, COORDS.jobRoleTop.y);
-  drawText(data.careHome, COORDS.careHome.x, COORDS.careHome.y);
+// Header fields (slightly bigger)
+  const headerFont = "30px Arial";
+  drawText(data.name, COORDS.name.x, COORDS.name.y, headerFont);
+  drawText(data.jobRoleTop, COORDS.jobRoleTop.x, COORDS.jobRoleTop.y, headerFont);
+  drawText(data.careHome, COORDS.careHome.x, COORDS.careHome.y, headerFont);
 
-  // Single row text
-  const y = COORDS.rowY;
 
-  drawText("1", COORDS.colX.slno, y);
-  drawText(formatDateForSheet(data.date), COORDS.colX.date, y);
-  drawText(data.startTime, COORDS.colX.start, y);
-  drawText(data.endTime, COORDS.colX.end, y);
-  drawText(String(data.breakMins ?? ""), COORDS.colX.break, y);
-  drawText(String(data.totalHours ?? ""), COORDS.colX.total, y);
-  drawText(data.jobRoleTop, COORDS.colX.jobRole, y);
+  // Row fields (smaller so it fits inside boxes)
+  const rowFont = "24px Arial";
+  drawText("1", COORDS.colX.slno, y, rowFont);
+  drawText(formatDateForSheet(data.date), COORDS.colX.date, y, rowFont);
+  drawText(data.startTime, COORDS.colX.start, y, rowFont);
+  drawText(data.endTime, COORDS.colX.end, y, rowFont);
+  drawText(String(data.breakMins ?? ""), COORDS.colX.break, y, rowFont);
+  drawText(String(data.totalHours ?? ""), COORDS.colX.total, y, rowFont);
+  drawText(data.jobRoleTop, COORDS.colX.jobRole, y, rowFont);
+
+  if (data.remarks && String(data.remarks).trim()) {
+    drawText(data.remarks, COORDS.colX.remarks, y, rowFont);
+  }
+
 
   // ✅ Draw remarks ONLY if present
   if (data.remarks && String(data.remarks).trim()) {
@@ -183,7 +218,7 @@ async function renderTimesheet(data) {
   }
 
   // Signature
-  const sigImg = await canvasToImage(sigPad);
+  const sigImg = await signatureToTransparentImage(sigPad);
   pctx.drawImage(
     sigImg,
     COORDS.colX.signBoxX,
