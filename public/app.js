@@ -18,9 +18,10 @@ const TEMPLATE_URL = "/templat.png";
  */
 const COORDS = {
   // Header lines
-  name: { x: 455, y: 235 },
-  jobRoleTop: { x: 236, y: 239 },
+  jobRoleTop: { x: 455, y: 235 },
+  name: { x: 236, y: 239 },
   careHome: { x: 895, y: 232 },
+  
 
   // Row 1 baseline y
   rowY: 402,
@@ -178,7 +179,7 @@ async function renderTimesheet(data) {
   pctx.drawImage(template, 0, 0);
 
   // Header fields
-  const headerFont = "30px Arial";
+  const headerFont = "24px Arial";
   drawText(data.name, COORDS.name.x, COORDS.name.y, headerFont);
   drawText(data.jobRoleTop, COORDS.jobRoleTop.x, COORDS.jobRoleTop.y, headerFont);
   drawText(data.careHome, COORDS.careHome.x, COORDS.careHome.y, headerFont);
