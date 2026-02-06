@@ -8,7 +8,7 @@ const sigPad = document.getElementById("sigPad");
 const sctx = sigPad.getContext("2d");
 const clearSigBtn = document.getElementById("clearSig");
 
-const TEMPLATE_URL = "/template.png";
+const TEMPLATE_URL = "/templat.png";
 
 /**
  * IMPORTANT:
