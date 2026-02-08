@@ -28,7 +28,7 @@ const COORDS = {
   rowY: 402,
 
   colX: {
-    slno: 50,
+    // slno: 50,
     date: 103,
     start: 245,
     end: 350,
@@ -357,7 +357,7 @@ async function renderTimesheet(data) {
   const rowFontSize = 24;
   const y = COORDS.rowY;
 
-  drawText("1", COORDS.colX.slno, y, `${rowFontSize}px Arial`);
+  //drawText("1", COORDS.colX.slno, y, `${rowFontSize}px Arial`);
   drawText(formatDateForSheet(data.date), COORDS.colX.date, y, `${rowFontSize}px Arial`);
   drawText(data.startTime, COORDS.colX.start, y, `${rowFontSize}px Arial`);
   drawText(data.endTime, COORDS.colX.end, y, `${rowFontSize}px Arial`);
@@ -375,26 +375,32 @@ async function renderTimesheet(data) {
   }
 
   // ✅ Signature: clip to box + padding so it NEVER overflows
+    // ✅ Signature: clip to box + draw smaller and centered
   const sigImg = await signatureToTransparentImage(sigPad);
 
-  const pad = 8;
   const boxX = COORDS.colX.signBoxX;
   const boxY = COORDS.colX.signBoxY;
   const boxW = COORDS.colX.signBoxW;
   const boxH = COORDS.colX.signBoxH;
+
+  // Make it smaller inside the box (change 0.70 to 0.60 if you want even smaller)
+  const scale = 0.70;
+  const drawW = boxW * scale;
+  const drawH = boxH * scale;
+
+  // Center it
+  const dx = boxX + (boxW - drawW) / 2;
+  const dy = boxY + (boxH - drawH) / 2;
 
   pctx.save();
   pctx.beginPath();
   pctx.rect(boxX, boxY, boxW, boxH);
   pctx.clip();
 
-  pctx.drawImage(
-    sigImg,
-    boxX + pad,
-    boxY + pad,
-    boxW - pad * 2,
-    boxH - pad * 2
-  );
+  pctx.drawImage(sigImg, dx, dy, drawW, drawH);
+
+  pctx.restore();
+
 
   pctx.restore();
 }
@@ -406,6 +412,8 @@ form.addEventListener("submit", async (e) => {
 
   const fd = new FormData(form);
   const data = Object.fromEntries(fd.entries());
+  data.remarks = String(data.remarks || "").trim().slice(0, 11);
+
 
   data.name = String(data.name || "").trim().slice(0, 20);
   data.careHome = getFinalCareHome();
