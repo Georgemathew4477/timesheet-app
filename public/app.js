@@ -14,8 +14,7 @@ const clearSigBtn = document.getElementById("clearSig");
 const TEMPLATE_URL = "/templat.png";
 
 /**
- * IMPORTANT:
- * These coordinates assume the preview canvas is the SAME pixel size as the template image.
+ * Coordinates assume preview canvas is SAME pixel size as template image.
  * We enforce that in renderTimesheet() by setting preview.width/height from template.
  */
 const COORDS = {
@@ -28,7 +27,6 @@ const COORDS = {
   rowY: 402,
 
   colX: {
-    // slno: 50,
     date: 103,
     start: 245,
     end: 350,
@@ -70,6 +68,34 @@ function formatDateForSheet(yyyy_mm_dd) {
   return `${d}/${m}/${y}`;
 }
 
+function canvasToBlob(canvas, type = "image/png") {
+  return new Promise((resolve) => canvas.toBlob(resolve, type));
+}
+
+function canvasToImage(canvas) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.src = canvas.toDataURL("image/png");
+  });
+}
+
+function normalizeBreakMins(v) {
+  const n = Number(v);
+  return [0, 30, 60].includes(n) ? n : 0;
+}
+
+function limitChars(str, max) {
+  return String(str ?? "").trim().slice(0, max);
+}
+function limitCharsWithEllipsis(str, max) {
+  const s = String(str ?? "").trim();
+  if (s.length <= max) return s;
+  if (max <= 1) return s.slice(0, max);
+  return s.slice(0, max - 1) + "…";
+}
+
+/** Basic draw text (no clipping) */
 function drawText(value, x, y, font = "30px Arial") {
   pctx.font = font;
   pctx.fillStyle = "#111";
@@ -77,11 +103,15 @@ function drawText(value, x, y, font = "30px Arial") {
   pctx.fillText(String(value ?? ""), x, y);
 }
 
+/**
+ * ✅ Draw text INSIDE a cell region (clips to borders) and fits/truncates.
+ * Perfect for JOB ROLE & REMARKS columns.
+ */
 function drawCellText(text, xLeft, yMid, xRight, fontSize = 24, fontFamily = "Arial") {
   const str = String(text ?? "").trim();
 
-  const padX = 6;     // left/right padding inside cell
-  const clipHalfH = 18; // half height of row area to clip (tweak 16-20 if needed)
+  const padX = 6;       // padding inside cell
+  const clipHalfH = 18; // half height of row area (tweak 16-20 if needed)
 
   const clipX = xLeft;
   const clipY = yMid - clipHalfH;
@@ -96,17 +126,18 @@ function drawCellText(text, xLeft, yMid, xRight, fontSize = 24, fontFamily = "Ar
   pctx.fillStyle = "#111";
   pctx.textBaseline = "middle";
 
-  // shrink-to-fit
-  let size = fontSize;
   const maxW = clipW - padX * 2;
 
+  // Shrink-to-fit
+  let size = fontSize;
   while (size > 12) {
     pctx.font = `${size}px ${fontFamily}`;
     if (pctx.measureText(str).width <= maxW) break;
     size--;
   }
 
-  // ellipsis if still too wide
+  // Ellipsis if still too wide
+  pctx.font = `${size}px ${fontFamily}`;
   let out = str;
   if (pctx.measureText(out).width > maxW) {
     while (out.length > 0 && pctx.measureText(out + "…").width > maxW) {
@@ -115,19 +146,15 @@ function drawCellText(text, xLeft, yMid, xRight, fontSize = 24, fontFamily = "Ar
     out = out.length ? out + "…" : "";
   }
 
-  pctx.font = `${size}px ${fontFamily}`;
   pctx.fillText(out, xLeft + padX, yMid);
-
   pctx.restore();
 }
 
-  
 /**
- * ✅ Shrink-to-fit text in ONE LINE (best for table cells)
- * Prevents overflow into next columns.
+ * ✅ Shrink-to-fit text (no clipping) for header fields.
  */
 function drawFitText(text, x, y, maxWidth, fontSize = 24, fontFamily = "Arial") {
-  const str = String(text ?? "");
+  const str = String(text ?? "").trim();
   let size = fontSize;
 
   pctx.fillStyle = "#111";
@@ -140,48 +167,6 @@ function drawFitText(text, x, y, maxWidth, fontSize = 24, fontFamily = "Arial") 
   }
 
   pctx.fillText(str, x, y);
-}
-
-/**
- * ✅ Optional wrap for header line (top section has space)
- * Keep it small and max 2 lines.
- */
-function drawWrappedText(text, x, y, maxWidth, lineHeight, font = "24px Arial") {
-  pctx.font = font;
-  pctx.fillStyle = "#111";
-  pctx.textBaseline = "middle";
-
-  const words = String(text ?? "").split(/\s+/);
-  let line = "";
-  let lineCount = 0;
-
-  for (let i = 0; i < words.length; i++) {
-    const testLine = line ? line + " " + words[i] : words[i];
-    const w = pctx.measureText(testLine).width;
-
-    if (w > maxWidth && line) {
-      pctx.fillText(line, x, y + lineCount * lineHeight);
-      line = words[i];
-      lineCount++;
-      if (lineCount >= 1) break; // max 2 lines
-    } else {
-      line = testLine;
-    }
-  }
-
-  if (line) pctx.fillText(line, x, y + lineCount * lineHeight);
-}
-
-function canvasToBlob(canvas, type = "image/png") {
-  return new Promise((resolve) => canvas.toBlob(resolve, type));
-}
-
-function canvasToImage(canvas) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.src = canvas.toDataURL("image/png");
-  });
 }
 
 /** ---------------- "Other" handling + validation rules ---------------- */
@@ -230,22 +215,17 @@ jobRoleSelect?.addEventListener("change", () =>
 function getFinalCareHome() {
   if (!carehomeSelect) return "";
   if (carehomeSelect.value === "Other") {
-    return (carehomeOther?.value || "").trim().slice(0, 25);
+    return limitChars(carehomeOther?.value || "", 25);
   }
-  return carehomeSelect.value;
+  return String(carehomeSelect.value || "").trim();
 }
 
 function getFinalJobRole() {
   if (!jobRoleSelect) return "";
   if (jobRoleSelect.value === "Other") {
-    return (jobRoleOther?.value || "").trim().slice(0, 25);
+    return limitChars(jobRoleOther?.value || "", 25);
   }
-  return jobRoleSelect.value;
-}
-
-function normalizeBreakMins(v) {
-  const n = Number(v);
-  return [0, 30, 60].includes(n) ? n : 0;
+  return String(jobRoleSelect.value || "").trim();
 }
 
 /** ---------------- Signature Pad ---------------- */
@@ -384,56 +364,67 @@ async function renderTimesheet(data) {
   pctx.clearRect(0, 0, preview.width, preview.height);
   pctx.drawImage(template, 0, 0);
 
-  const headerFont = "24px Arial";
-  drawText(data.name, COORDS.name.x, COORDS.name.y, headerFont);
+  // ---------- Header ----------
+  const headerFontSize = 24;
 
-  // Header job role: can wrap because header has space
-  drawWrappedText(
+  drawText(data.name, COORDS.name.x, COORDS.name.y, `${headerFontSize}px Arial`);
+
+  // Header job role should NOT overlap Care Home: limit by CareHome.x
+  const headerJobRoleMaxWidth = (COORDS.careHome.x - 25) - COORDS.jobRoleTop.x;
+  drawFitText(
     data.jobRoleTop,
     COORDS.jobRoleTop.x,
     COORDS.jobRoleTop.y,
-    280,
-    22,
-    headerFont
+    headerJobRoleMaxWidth,
+    headerFontSize,
+    "Arial"
   );
 
-  const careHomeMaxWidth = 300; // adjust if needed
-  drawFitText(data.careHome, COORDS.careHome.x, COORDS.careHome.y, careHomeMaxWidth, 24, "Arial");
+  // Care home header: fit within some width
+  drawFitText(
+    data.careHome,
+    COORDS.careHome.x,
+    COORDS.careHome.y,
+    320,
+    headerFontSize,
+    "Arial"
+  );
 
+  // ---------- Row ----------
   const rowFontSize = 24;
-const y = COORDS.rowY + 8; // ✅ small shift to center better in the row
+  const y = COORDS.rowY + 8; // slightly lower to center in row
 
-drawText(formatDateForSheet(data.date), COORDS.colX.date, y, `${rowFontSize}px Arial`);
-drawText(data.startTime, COORDS.colX.start, y, `${rowFontSize}px Arial`);
-drawText(data.endTime, COORDS.colX.end, y, `${rowFontSize}px Arial`);
-drawText(String(data.breakMins ?? ""), COORDS.colX.break, y, `${rowFontSize}px Arial`);
-drawText(String(data.totalHours ?? ""), COORDS.colX.total, y, `${rowFontSize}px Arial`);
+  drawText(formatDateForSheet(data.date), COORDS.colX.date, y, `${rowFontSize}px Arial`);
+  drawText(data.startTime, COORDS.colX.start, y, `${rowFontSize}px Arial`);
+  drawText(data.endTime, COORDS.colX.end, y, `${rowFontSize}px Arial`);
+  drawText(String(data.breakMins ?? ""), COORDS.colX.break, y, `${rowFontSize}px Arial`);
+  drawText(String(data.totalHours ?? ""), COORDS.colX.total, y, `${rowFontSize}px Arial`);
 
-// ✅ JOB ROLE cell: left = jobRole, right = start of signature column
-const jobRoleRightEdge = COORDS.colX.signBoxX - 12;
-drawCellText(
-  data.jobRoleTop,
-  COORDS.colX.jobRole,
-  y,
-  jobRoleRightEdge,
-  rowFontSize,
-  "Arial"
-);
+  // ✅ Table job role: show shortened (16) so it never looks crowded
+  // If you prefer full but clipped, change to data.jobRoleTop
+  const jobRoleRightEdge = COORDS.colX.signBoxX - 10;
+  drawCellText(
+    data.jobRoleRow,
+    COORDS.colX.jobRole,
+    y,
+    jobRoleRightEdge,
+    rowFontSize,
+    "Arial"
+  );
 
-// ✅ REMARKS cell: left = remarks, right = end of table/page
-// If your table ends earlier than the page, reduce this (e.g., preview.width - 40)
-const remarksRightEdge = preview.width - 12;
-drawCellText(
-  data.remarks || "",
-  COORDS.colX.remarks,
-  y,
-  remarksRightEdge,
-  rowFontSize,
-  "Arial"
-);
+  // ✅ Remarks cell: clip so it NEVER goes out of column
+  // If your table ends before canvas width, set a smaller right edge.
+  const remarksRightEdge = preview.width - 12;
+  drawCellText(
+    data.remarks || "",
+    COORDS.colX.remarks,
+    y,
+    remarksRightEdge,
+    rowFontSize,
+    "Arial"
+  );
 
-  // ✅ Signature: clip to box + padding so it NEVER overflows
-    // ✅ Signature: clip to box + draw smaller and centered
+  // ---------- Signature ----------
   const sigImg = await signatureToTransparentImage(sigPad);
 
   const boxX = COORDS.colX.signBoxX;
@@ -441,12 +432,12 @@ drawCellText(
   const boxW = COORDS.colX.signBoxW;
   const boxH = COORDS.colX.signBoxH;
 
-  // Make it smaller inside the box (change 0.70 to 0.60 if you want even smaller)
-  const scale = 0.70;
+  // smaller signature inside box
+  const scale = 0.50;
   const drawW = boxW * scale;
   const drawH = boxH * scale;
 
-  // Center it
+  // center it
   const dx = boxX + (boxW - drawW) / 2;
   const dy = boxY + (boxH - drawH) / 2;
 
@@ -458,9 +449,6 @@ drawCellText(
   pctx.drawImage(sigImg, dx, dy, drawW, drawH);
 
   pctx.restore();
-
-
-  pctx.restore();
 }
 
 /** ---------------- Submit ---------------- */
@@ -470,12 +458,17 @@ form.addEventListener("submit", async (e) => {
 
   const fd = new FormData(form);
   const data = Object.fromEntries(fd.entries());
-  data.remarks = String(data.remarks || "").trim().slice(0, 11);
 
+  // Hard limits
+  data.name = limitChars(data.name, 20);
+  data.remarks = limitChars(data.remarks, 11);
 
-  data.name = String(data.name || "").trim().slice(0, 20);
-  data.careHome = getFinalCareHome();
-  data.jobRoleTop = getFinalJobRole();
+  data.careHome = getFinalCareHome(); // already limited
+  data.jobRoleTop = limitChars(getFinalJobRole(), 25);
+
+  // ✅ Row job role is shortened to keep the table clean
+  data.jobRoleRow = limitCharsWithEllipsis(data.jobRoleTop, 16);
+
   data.breakMins = String(normalizeBreakMins(data.breakMins));
 
   calculateTotalHours();
@@ -509,6 +502,7 @@ form.addEventListener("submit", async (e) => {
     statusEl.textContent = "Submitted ✅";
     form.reset();
 
+    // hide "Other" inputs after reset
     if (carehomeOtherWrap && carehomeOther) {
       carehomeOtherWrap.style.display = "none";
       carehomeOther.required = false;
