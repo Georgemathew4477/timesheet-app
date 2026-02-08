@@ -73,6 +73,33 @@ function drawText(value, x, y, font = "30px Arial") {
   pctx.fillText(String(value ?? ""), x, y);
 }
 
+function drawWrappedText(text, x, y, maxWidth, lineHeight, font = "24px Arial") {
+  pctx.font = font;
+  pctx.fillStyle = "#111";
+  pctx.textBaseline = "middle";
+
+  const words = String(text ?? "").split(/\s+/);
+  let line = "";
+  let lineCount = 0;
+
+  for (let i = 0; i < words.length; i++) {
+    const testLine = line ? line + " " + words[i] : words[i];
+    const w = pctx.measureText(testLine).width;
+
+    if (w > maxWidth && line) {
+      pctx.fillText(line, x, y + lineCount * lineHeight);
+      line = words[i];
+      lineCount++;
+      // limit to 2 lines to avoid messing layout
+      if (lineCount >= 1) break;
+    } else {
+      line = testLine;
+    }
+  }
+
+  if (line) pctx.fillText(line, x, y + lineCount * lineHeight);
+}
+
 function canvasToBlob(canvas, type = "image/png") {
   return new Promise((resolve) => canvas.toBlob(resolve, type));
 }
@@ -296,7 +323,8 @@ async function renderTimesheet(data) {
   // Header fields
   const headerFont = "24px Arial";
   drawText(data.name, COORDS.name.x, COORDS.name.y, headerFont);
-  drawText(data.jobRoleTop, COORDS.jobRoleTop.x, COORDS.jobRoleTop.y, headerFont);
+  drawWrappedText(data.jobRoleTop, COORDS.jobRoleTop.x, COORDS.jobRoleTop.y, 260, 24, headerFont);
+
   drawText(data.careHome, COORDS.careHome.x, COORDS.careHome.y, headerFont);
 
   // Row fields
@@ -309,7 +337,7 @@ async function renderTimesheet(data) {
   drawText(data.endTime, COORDS.colX.end, y, rowFont);
   drawText(String(data.breakMins ?? ""), COORDS.colX.break, y, rowFont);
   drawText(String(data.totalHours ?? ""), COORDS.colX.total, y, rowFont);
-  drawText(data.jobRoleTop, COORDS.colX.jobRole, y, rowFont);
+  drawWrappedText(data.jobRoleTop, COORDS.colX.jobRole, y, 220, 24, rowFont);
 
   // Remarks optional
   if (data.remarks && String(data.remarks).trim()) {
