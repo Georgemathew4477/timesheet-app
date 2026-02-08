@@ -1,0 +1,342 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Timesheet</title>
+<style>
+  :root{
+    --bg:#f6f7fb;
+    --card:#ffffff;
+    --text:#111827;
+    --muted:#6b7280;
+    --border:#e5e7eb;
+    --ring:rgba(37,99,235,.25);
+    --primary:#2563eb;
+    --primary2:#1d4ed8;
+    --shadow: 0 10px 30px rgba(17,24,39,.08);
+    --radius:16px;
+  }
+
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    color:var(--text);
+    background: radial-gradient(1200px 700px at 20% -10%, #dbeafe 0%, transparent 60%),
+                radial-gradient(900px 600px at 80% 0%, #ede9fe 0%, transparent 55%),
+                var(--bg);
+  }
+
+  .container{
+    max-width: 980px;
+    margin: 40px auto;
+    padding: 0 18px 40px;
+  }
+
+  .header{
+    text-align:center;
+    margin-bottom: 18px;
+  }
+
+  .header h1{
+    margin: 0 0 8px;
+    font-size: 34px;
+    letter-spacing: .2px;
+  }
+  .header p{
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .card{
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 18px;
+    margin: 16px 0;
+  }
+
+  .section-title{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin: 0 0 10px;
+  }
+  .section-title h3{
+    margin:0;
+    font-size: 16px;
+    letter-spacing:.2px;
+  }
+  .section-title span{
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-top: 10px;
+  }
+  @media (max-width: 760px){
+    .grid{ grid-template-columns: 1fr; }
+    .container{ margin: 20px auto; }
+  }
+
+  label{
+    display:block;
+    font-size: 13px;
+    font-weight: 650;
+    margin-bottom: 6px;
+    color: #111827;
+  }
+
+  input, select{
+    width:100%;
+    padding: 12px 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    outline: none;
+    font-size: 14px;
+    background: #fff;
+    transition: box-shadow .15s, border-color .15s;
+  }
+  input::placeholder{ color:#9ca3af; }
+  input:focus, select:focus{
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 4px var(--ring);
+  }
+
+  .divider{
+    border: 0;
+    border-top: 1px solid var(--border);
+    margin: 16px 0;
+  }
+
+  .hint{
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .signature-wrap{
+    border: 1px dashed #c7d2fe;
+    background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+    border-radius: 14px;
+    padding: 12px;
+  }
+
+  canvas{
+    width:100%;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background:#fff;
+  }
+
+  .actions{
+    display:flex;
+    gap: 10px;
+    align-items:center;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
+  button{
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    cursor:pointer;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  button[type="submit"]{
+    background: linear-gradient(180deg, var(--primary) 0%, var(--primary2) 100%);
+    color:#fff;
+    box-shadow: 0 10px 20px rgba(37,99,235,.18);
+  }
+  button[type="submit"]:hover{ filter: brightness(1.03); }
+  button[type="submit"]:active{ transform: translateY(1px); }
+
+  #clearSig{
+    background:#fff;
+    border-color: var(--border);
+    color: var(--text);
+  }
+  #clearSig:hover{
+    border-color:#cbd5e1;
+    background:#f9fafb;
+  }
+
+  #status{
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  /* Preview card (optional) */
+  .preview-title{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap: 12px;
+  }
+  .preview-title h3{ margin:0; font-size: 16px; }
+  .preview-title small{ color: var(--muted); }
+</style>
+
+  </head>
+
+  <body>
+  <div class="container">
+    <div class="header">
+      <h1>Timesheet</h1>
+      <p>Fill the form and submit</p>
+    </div>
+
+    <div class="card">
+      <form id="tsForm">
+      <div class="grid">
+        <div>
+          <label for="empName">Name</label>
+          <input id="empName" name="name" type="text" maxlength="20" required />
+          <p class="hint">Max 20 characters</p>
+        </div>
+      
+        <div>
+          <label for="jobRoleSelect">Job Role</label>
+          <select id="jobRoleSelect" name="jobRoleSelect" required>
+            <option value="" disabled selected>Select job role</option>
+            <option value="HCA">HCA</option>
+            <option value="Senior Carer">Senior Carer</option>
+            <option value="Nurse">Nurse</option>
+            <option value="Chef">Chef</option>
+            <option value="Domestic">Domestic</option>
+            <option value="Kitchen Assistant">Kitchen Assistant</option>
+            <option value="One to One">One to One</option>
+            <option value="Other">Other</option>
+          </select>
+        
+          <div id="jobRoleOtherWrap" style="display:none; margin-top:10px;">
+            <label for="jobRoleOther">Job Role (Other)</label>
+            <input id="jobRoleOther" name="jobRoleOther" type="text" maxlength="25" placeholder="Type your job role" />
+            <p class="hint">Max 25 characters</p>
+          </div>
+        </div>
+      </div>
+    
+      <div class="grid">
+        <div>
+          <label for="carehomeSelect">Care Home</label>
+          <select id="carehomeSelect" name="carehomeSelect" required>
+            <option value="" disabled selected>Select a care home</option>
+            <option value="Care Home A">Care Home A</option>
+            <option value="Care Home B">Care Home B</option>
+            <option value="Care Home C">Care Home C</option>
+            <option value="Other">Other</option>
+          </select>
+        
+          <div id="carehomeOtherWrap" style="display:none; margin-top:10px;">
+            <label for="carehomeOther">Care Home (Other)</label>
+            <input id="carehomeOther" name="carehomeOther" type="text" maxlength="25" placeholder="Type care home name" />
+            <p class="hint">Max 25 characters</p>
+          </div>
+        </div>
+      
+        <div>
+          <label>Week</label>
+          <input name="week" placeholder="" />
+        </div>
+      </div>
+    
+      <hr class="divider" />
+    
+      <div class="section-title">
+        <h3>Shift</h3>
+        <span>Fill one shift and submit</span>
+      </div>
+    
+      <div class="grid">
+        <div>
+          <label>Date</label>
+          <input name="date" type="date" required />
+        </div>
+        <div>
+          <label>Start Time</label>
+          <input name="startTime" type="time" required />
+        </div>
+      </div>
+    
+      <div class="grid">
+        <div>
+          <label>End Time</label>
+          <input name="endTime" type="time" required />
+        </div>
+        <div>
+          <label>Break Duration (mins)</label>
+          <select name="breakMins" required>
+            <option value="0">0</option>
+            <option value="30">30</option>
+            <option value="60">60</option>
+          </select>
+        </div>
+      </div>
+    
+      <div class="grid">
+        <div>
+          <label>Total Hours Worked</label>
+          <input
+            name="totalHours"
+            type="number"
+            step="0.25"
+            min="0"
+            readonly
+            placeholder="Auto calculated"
+          />
+        </div>
+        <div>
+          <label>Remarks</label>
+          <input name="remarks" />
+        </div>
+      </div>
+    
+      <hr class="divider" />
+    
+      <div class="section-title">
+        <h3>Incharge Signature</h3>
+        <span>Draw using finger/mouse</span>
+      </div>
+      <p class="hint">This signature will be placed inside the “INCHARGE SIGN” box.</p>
+    
+      <div class="signature-wrap">
+        <canvas id="sigPad" width="700" height="200"></canvas>
+        <div class="actions">
+          <button type="button" id="clearSig">Clear Signature</button>
+        </div>
+      </div>
+    
+      <div class="actions">
+        <button type="submit">Submit</button>
+        <span id="status"></span>
+      </div>
+    </form>
+
+    </div>
+
+    <div class="card">
+      <div class="preview-title">
+        <h3>Preview</h3>
+        <small>Auto-generated image</small>
+      </div>
+      <canvas id="preview" width="1654" height="2339"></canvas>
+      
+    </div>
+
+    <script src="./app.js"></script>
+  </div>
+</body>
+
+</html>
