@@ -77,6 +77,51 @@ function drawText(value, x, y, font = "30px Arial") {
   pctx.fillText(String(value ?? ""), x, y);
 }
 
+function drawCellText(text, xLeft, yMid, xRight, fontSize = 24, fontFamily = "Arial") {
+  const str = String(text ?? "").trim();
+
+  const padX = 6;     // left/right padding inside cell
+  const clipHalfH = 18; // half height of row area to clip (tweak 16-20 if needed)
+
+  const clipX = xLeft;
+  const clipY = yMid - clipHalfH;
+  const clipW = Math.max(0, xRight - xLeft);
+  const clipH = clipHalfH * 2;
+
+  pctx.save();
+  pctx.beginPath();
+  pctx.rect(clipX, clipY, clipW, clipH);
+  pctx.clip();
+
+  pctx.fillStyle = "#111";
+  pctx.textBaseline = "middle";
+
+  // shrink-to-fit
+  let size = fontSize;
+  const maxW = clipW - padX * 2;
+
+  while (size > 12) {
+    pctx.font = `${size}px ${fontFamily}`;
+    if (pctx.measureText(str).width <= maxW) break;
+    size--;
+  }
+
+  // ellipsis if still too wide
+  let out = str;
+  if (pctx.measureText(out).width > maxW) {
+    while (out.length > 0 && pctx.measureText(out + "…").width > maxW) {
+      out = out.slice(0, -1);
+    }
+    out = out.length ? out + "…" : "";
+  }
+
+  pctx.font = `${size}px ${fontFamily}`;
+  pctx.fillText(out, xLeft + padX, yMid);
+
+  pctx.restore();
+}
+
+  
 /**
  * ✅ Shrink-to-fit text in ONE LINE (best for table cells)
  * Prevents overflow into next columns.
@@ -356,47 +401,36 @@ async function renderTimesheet(data) {
   drawFitText(data.careHome, COORDS.careHome.x, COORDS.careHome.y, careHomeMaxWidth, 24, "Arial");
 
   const rowFontSize = 24;
-  const y = COORDS.rowY;
+const y = COORDS.rowY + 8; // ✅ small shift to center better in the row
 
-  //drawText("1", COORDS.colX.slno, y, `${rowFontSize}px Arial`);
-  drawText(formatDateForSheet(data.date), COORDS.colX.date, y, `${rowFontSize}px Arial`);
-  drawText(data.startTime, COORDS.colX.start, y, `${rowFontSize}px Arial`);
-  drawText(data.endTime, COORDS.colX.end, y, `${rowFontSize}px Arial`);
-  drawText(String(data.breakMins ?? ""), COORDS.colX.break, y, `${rowFontSize}px Arial`);
-  drawText(String(data.totalHours ?? ""), COORDS.colX.total, y, `${rowFontSize}px Arial`);
+drawText(formatDateForSheet(data.date), COORDS.colX.date, y, `${rowFontSize}px Arial`);
+drawText(data.startTime, COORDS.colX.start, y, `${rowFontSize}px Arial`);
+drawText(data.endTime, COORDS.colX.end, y, `${rowFontSize}px Arial`);
+drawText(String(data.breakMins ?? ""), COORDS.colX.break, y, `${rowFontSize}px Arial`);
+drawText(String(data.totalHours ?? ""), COORDS.colX.total, y, `${rowFontSize}px Arial`);
 
-    // ✅ TABLE JOB ROLE: shrink-to-fit so it NEVER goes into signature column
-    // ✅ JOB ROLE cell must NOT cross into signature column line
-  const jobRoleRightEdge = COORDS.colX.signBoxX - 30; // increase to 40 if still close
-  const jobRoleMaxWidth = jobRoleRightEdge - COORDS.colX.jobRole;
+// ✅ JOB ROLE cell: left = jobRole, right = start of signature column
+const jobRoleRightEdge = COORDS.colX.signBoxX - 12;
+drawCellText(
+  data.jobRoleTop,
+  COORDS.colX.jobRole,
+  y,
+  jobRoleRightEdge,
+  rowFontSize,
+  "Arial"
+);
 
-  // If still too long even after shrinking, cut it
-  const rawJR = String(data.jobRoleTop ?? "");
-  let jr = rawJR;
-
-  // Try shrink-to-fit first
-  drawFitText(jr, COORDS.colX.jobRole, y, jobRoleMaxWidth, rowFontSize, "Arial");
-
-  // Extra safety: if still overflowing (rare), truncate and redraw
-  pctx.font = `${rowFontSize}px Arial`;
-  if (pctx.measureText(rawJR).width > jobRoleMaxWidth) {
-    while (jr.length > 0 && pctx.measureText(jr + "…").width > jobRoleMaxWidth) {
-      jr = jr.slice(0, -1);
-    }
-    // clear the area lightly by drawing white rectangle (optional)
-    // pctx.fillStyle = "#fff";
-    // pctx.fillRect(COORDS.colX.jobRole, y - 18, jobRoleMaxWidth, 36);
-
-    pctx.fillStyle = "#111";
-    pctx.textBaseline = "middle";
-    pctx.fillText(jr + "…", COORDS.colX.jobRole, y);
-  }
-
-  // Remarks optional (also shrink-to-fit so it doesn't go outside page)
-  if (data.remarks && String(data.remarks).trim()) {
-    const remarksMaxWidth = (preview.width - 12) - COORDS.colX.remarks;
-    drawFitText(data.remarks, COORDS.colX.remarks, y, remarksMaxWidth, rowFontSize, "Arial");
-  }
+// ✅ REMARKS cell: left = remarks, right = end of table/page
+// If your table ends earlier than the page, reduce this (e.g., preview.width - 40)
+const remarksRightEdge = preview.width - 12;
+drawCellText(
+  data.remarks || "",
+  COORDS.colX.remarks,
+  y,
+  remarksRightEdge,
+  rowFontSize,
+  "Arial"
+);
 
   // ✅ Signature: clip to box + padding so it NEVER overflows
     // ✅ Signature: clip to box + draw smaller and centered
