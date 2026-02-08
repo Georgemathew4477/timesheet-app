@@ -28,20 +28,24 @@ const COORDS = {
   rowY: 402,
 
   colX: {
-    slno: 50, // ✅ added (adjust if needed)
+    slno: 50,
     date: 103,
     start: 245,
     end: 350,
     break: 475,
     total: 583,
+
+    // JOB ROLE column start
     jobRole: 698,
-    remarks: 1033,
 
     // Signature box
     signBoxX: 847,
     signBoxY: 370,
     signBoxW: 200,
     signBoxH: 80,
+
+    // Remarks column start
+    remarks: 1033,
   },
 };
 
@@ -73,6 +77,30 @@ function drawText(value, x, y, font = "30px Arial") {
   pctx.fillText(String(value ?? ""), x, y);
 }
 
+/**
+ * ✅ Shrink-to-fit text in ONE LINE (best for table cells)
+ * Prevents overflow into next columns.
+ */
+function drawFitText(text, x, y, maxWidth, fontSize = 24, fontFamily = "Arial") {
+  const str = String(text ?? "");
+  let size = fontSize;
+
+  pctx.fillStyle = "#111";
+  pctx.textBaseline = "middle";
+
+  while (size > 12) {
+    pctx.font = `${size}px ${fontFamily}`;
+    if (pctx.measureText(str).width <= maxWidth) break;
+    size--;
+  }
+
+  pctx.fillText(str, x, y);
+}
+
+/**
+ * ✅ Optional wrap for header line (top section has space)
+ * Keep it small and max 2 lines.
+ */
 function drawWrappedText(text, x, y, maxWidth, lineHeight, font = "24px Arial") {
   pctx.font = font;
   pctx.fillStyle = "#111";
@@ -90,8 +118,7 @@ function drawWrappedText(text, x, y, maxWidth, lineHeight, font = "24px Arial") 
       pctx.fillText(line, x, y + lineCount * lineHeight);
       line = words[i];
       lineCount++;
-      // limit to 2 lines to avoid messing layout
-      if (lineCount >= 1) break;
+      if (lineCount >= 1) break; // max 2 lines
     } else {
       line = testLine;
     }
@@ -130,10 +157,8 @@ function enforceMaxLen(inputEl, max) {
   });
 }
 
-// 1) name max 20, carehome other max 25
 enforceMaxLen(empNameEl, 20);
 enforceMaxLen(carehomeOther, 25);
-// jobrole other (not requested, but safe)
 enforceMaxLen(jobRoleOther, 25);
 
 function toggleOther(selectEl, wrapEl, inputEl) {
@@ -157,7 +182,6 @@ jobRoleSelect?.addEventListener("change", () =>
   toggleOther(jobRoleSelect, jobRoleOtherWrap, jobRoleOther)
 );
 
-// Final values to use in PNG
 function getFinalCareHome() {
   if (!carehomeSelect) return "";
   if (carehomeSelect.value === "Other") {
@@ -174,7 +198,6 @@ function getFinalJobRole() {
   return jobRoleSelect.value;
 }
 
-// 4) break minutes only 0,30,60
 function normalizeBreakMins(v) {
   const n = Number(v);
   return [0, 30, 60].includes(n) ? n : 0;
@@ -264,7 +287,6 @@ async function signatureToTransparentImage(canvas) {
   const imgData = tctx.getImageData(0, 0, tmp.width, tmp.height);
   const d = imgData.data;
 
-  // Make near-white pixels transparent
   for (let i = 0; i < d.length; i += 4) {
     const r = d[i],
       g = d[i + 1],
@@ -292,18 +314,16 @@ function calculateTotalHours() {
   let startMin = sh * 60 + sm;
   let endMin = eh * 60 + em;
 
-  // Handle overnight shifts
   if (endMin < startMin) endMin += 24 * 60;
 
   let worked = endMin - startMin - breakMins;
   if (worked < 0) worked = 0;
 
-  const hours = Math.round((worked / 60) * 4) / 4; // round to .25
+  const hours = Math.round((worked / 60) * 4) / 4;
   const totalEl = document.querySelector('[name="totalHours"]');
   if (totalEl) totalEl.value = hours;
 }
 
-// Recalculate when inputs change
 ["startTime", "endTime", "breakMins"].forEach((name) => {
   const el = document.querySelector(`[name="${name}"]`);
   el?.addEventListener("change", calculateTotalHours);
@@ -313,46 +333,70 @@ function calculateTotalHours() {
 async function renderTimesheet(data) {
   const template = await loadTemplate();
 
-  // Match preview to template pixels
   preview.width = template.naturalWidth;
   preview.height = template.naturalHeight;
 
   pctx.clearRect(0, 0, preview.width, preview.height);
   pctx.drawImage(template, 0, 0);
 
-  // Header fields
   const headerFont = "24px Arial";
   drawText(data.name, COORDS.name.x, COORDS.name.y, headerFont);
-  drawWrappedText(data.jobRoleTop, COORDS.jobRoleTop.x, COORDS.jobRoleTop.y, 260, 24, headerFont);
+
+  // Header job role: can wrap because header has space
+  drawWrappedText(
+    data.jobRoleTop,
+    COORDS.jobRoleTop.x,
+    COORDS.jobRoleTop.y,
+    280,
+    22,
+    headerFont
+  );
 
   drawText(data.careHome, COORDS.careHome.x, COORDS.careHome.y, headerFont);
 
-  // Row fields
-  const rowFont = "24px Arial";
+  const rowFontSize = 24;
   const y = COORDS.rowY;
 
-  drawText("1", COORDS.colX.slno, y, rowFont);
-  drawText(formatDateForSheet(data.date), COORDS.colX.date, y, rowFont);
-  drawText(data.startTime, COORDS.colX.start, y, rowFont);
-  drawText(data.endTime, COORDS.colX.end, y, rowFont);
-  drawText(String(data.breakMins ?? ""), COORDS.colX.break, y, rowFont);
-  drawText(String(data.totalHours ?? ""), COORDS.colX.total, y, rowFont);
-  drawWrappedText(data.jobRoleTop, COORDS.colX.jobRole, y, 220, 24, rowFont);
+  drawText("1", COORDS.colX.slno, y, `${rowFontSize}px Arial`);
+  drawText(formatDateForSheet(data.date), COORDS.colX.date, y, `${rowFontSize}px Arial`);
+  drawText(data.startTime, COORDS.colX.start, y, `${rowFontSize}px Arial`);
+  drawText(data.endTime, COORDS.colX.end, y, `${rowFontSize}px Arial`);
+  drawText(String(data.breakMins ?? ""), COORDS.colX.break, y, `${rowFontSize}px Arial`);
+  drawText(String(data.totalHours ?? ""), COORDS.colX.total, y, `${rowFontSize}px Arial`);
 
-  // Remarks optional
+  // ✅ TABLE JOB ROLE: shrink-to-fit so it NEVER goes into signature column
+  const jobRoleMaxWidth = (COORDS.colX.signBoxX - 12) - COORDS.colX.jobRole;
+  drawFitText(data.jobRoleTop, COORDS.colX.jobRole, y, jobRoleMaxWidth, rowFontSize, "Arial");
+
+  // Remarks optional (also shrink-to-fit so it doesn't go outside page)
   if (data.remarks && String(data.remarks).trim()) {
-    drawText(data.remarks, COORDS.colX.remarks, y, rowFont);
+    const remarksMaxWidth = (preview.width - 12) - COORDS.colX.remarks;
+    drawFitText(data.remarks, COORDS.colX.remarks, y, remarksMaxWidth, rowFontSize, "Arial");
   }
 
-  // Signature (transparent background)
+  // ✅ Signature: clip to box + padding so it NEVER overflows
   const sigImg = await signatureToTransparentImage(sigPad);
+
+  const pad = 8;
+  const boxX = COORDS.colX.signBoxX;
+  const boxY = COORDS.colX.signBoxY;
+  const boxW = COORDS.colX.signBoxW;
+  const boxH = COORDS.colX.signBoxH;
+
+  pctx.save();
+  pctx.beginPath();
+  pctx.rect(boxX, boxY, boxW, boxH);
+  pctx.clip();
+
   pctx.drawImage(
     sigImg,
-    COORDS.colX.signBoxX,
-    COORDS.colX.signBoxY,
-    COORDS.colX.signBoxW,
-    COORDS.colX.signBoxH
+    boxX + pad,
+    boxY + pad,
+    boxW - pad * 2,
+    boxH - pad * 2
   );
+
+  pctx.restore();
 }
 
 /** ---------------- Submit ---------------- */
@@ -363,15 +407,16 @@ form.addEventListener("submit", async (e) => {
   const fd = new FormData(form);
   const data = Object.fromEntries(fd.entries());
 
-  // ✅ Apply requested rules + final values
   data.name = String(data.name || "").trim().slice(0, 20);
-  data.careHome = getFinalCareHome();       // final carehome text
-  data.jobRoleTop = getFinalJobRole();      // final jobrole text
+  data.careHome = getFinalCareHome();
+  data.jobRoleTop = getFinalJobRole();
   data.breakMins = String(normalizeBreakMins(data.breakMins));
 
-  // Recalculate total hours safely (so PNG always correct)
   calculateTotalHours();
-  data.totalHours = document.querySelector('[name="totalHours"]')?.value || data.totalHours || "";
+  data.totalHours =
+    document.querySelector('[name="totalHours"]')?.value ||
+    data.totalHours ||
+    "";
 
   try {
     await renderTimesheet(data);
@@ -391,16 +436,13 @@ form.addEventListener("submit", async (e) => {
 
     const text = await res.text();
     let out = {};
-    try {
-      out = JSON.parse(text);
-    } catch {}
+    try { out = JSON.parse(text); } catch {}
 
     if (!res.ok) throw new Error(out?.error || text || "Upload failed");
 
     statusEl.textContent = "Submitted ✅";
     form.reset();
 
-    // hide "Other" inputs after reset
     if (carehomeOtherWrap && carehomeOther) {
       carehomeOtherWrap.style.display = "none";
       carehomeOther.required = false;
@@ -412,7 +454,7 @@ form.addEventListener("submit", async (e) => {
       jobRoleOther.value = "";
     }
 
-    // Optional: clear signature after submit
+    // Optional:
     // clearSigBtn.click();
   } catch (err) {
     console.error(err);
