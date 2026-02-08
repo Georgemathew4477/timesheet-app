@@ -19,8 +19,8 @@ const TEMPLATE_URL = "/templat.png";
  */
 const COORDS = {
   // Header lines
-  jobRoleTop: { x: 500, y: 235 },
-  name: { x: 100, y: 235 },
+  jobRoleTop: { x: 495, y: 235 },
+  name: { x: 95, y: 235 },
   careHome: { x: 895, y: 235 },
 
   // Row 1 baseline y
@@ -43,7 +43,7 @@ const COORDS = {
     signBoxH: 80,
 
     // Remarks column start
-    remarks: 1033,
+    remarks: 1000,
   },
 };
 
@@ -462,9 +462,10 @@ form.addEventListener("submit", async (e) => {
   // Hard limits
   data.name = limitChars(data.name, 20);
   data.remarks = limitChars(data.remarks, 11);
+  
 
-  data.careHome = getFinalCareHome(); // already limited
-  data.jobRoleTop = limitChars(getFinalJobRole(), 25);
+  data.careHome = limitChars(getFinalCareHome(), 20); // already limited
+  data.jobRoleTop = limitChars(getFinalJobRole(), 20);
 
   // ✅ Row job role is shortened to keep the table clean
   data.jobRoleRow = limitCharsWithEllipsis(data.jobRoleTop, 16);
