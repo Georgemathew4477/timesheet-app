@@ -43,7 +43,7 @@ const COORDS = {
     signBoxH: 80,
 
     // Remarks column start
-    remarks: 1005,
+    remarks: 1010,
   },
 };
 
