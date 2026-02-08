@@ -352,7 +352,8 @@ async function renderTimesheet(data) {
     headerFont
   );
 
-  drawText(data.careHome, COORDS.careHome.x, COORDS.careHome.y, headerFont);
+  const careHomeMaxWidth = 300; // adjust if needed
+  drawFitText(data.careHome, COORDS.careHome.x, COORDS.careHome.y, careHomeMaxWidth, 24, "Arial");
 
   const rowFontSize = 24;
   const y = COORDS.rowY;
@@ -364,9 +365,32 @@ async function renderTimesheet(data) {
   drawText(String(data.breakMins ?? ""), COORDS.colX.break, y, `${rowFontSize}px Arial`);
   drawText(String(data.totalHours ?? ""), COORDS.colX.total, y, `${rowFontSize}px Arial`);
 
-  // ✅ TABLE JOB ROLE: shrink-to-fit so it NEVER goes into signature column
-  const jobRoleMaxWidth = (COORDS.colX.signBoxX - 12) - COORDS.colX.jobRole;
-  drawFitText(data.jobRoleTop, COORDS.colX.jobRole, y, jobRoleMaxWidth, rowFontSize, "Arial");
+    // ✅ TABLE JOB ROLE: shrink-to-fit so it NEVER goes into signature column
+    // ✅ JOB ROLE cell must NOT cross into signature column line
+  const jobRoleRightEdge = COORDS.colX.signBoxX - 30; // increase to 40 if still close
+  const jobRoleMaxWidth = jobRoleRightEdge - COORDS.colX.jobRole;
+
+  // If still too long even after shrinking, cut it
+  const rawJR = String(data.jobRoleTop ?? "");
+  let jr = rawJR;
+
+  // Try shrink-to-fit first
+  drawFitText(jr, COORDS.colX.jobRole, y, jobRoleMaxWidth, rowFontSize, "Arial");
+
+  // Extra safety: if still overflowing (rare), truncate and redraw
+  pctx.font = `${rowFontSize}px Arial`;
+  if (pctx.measureText(rawJR).width > jobRoleMaxWidth) {
+    while (jr.length > 0 && pctx.measureText(jr + "…").width > jobRoleMaxWidth) {
+      jr = jr.slice(0, -1);
+    }
+    // clear the area lightly by drawing white rectangle (optional)
+    // pctx.fillStyle = "#fff";
+    // pctx.fillRect(COORDS.colX.jobRole, y - 18, jobRoleMaxWidth, 36);
+
+    pctx.fillStyle = "#111";
+    pctx.textBaseline = "middle";
+    pctx.fillText(jr + "…", COORDS.colX.jobRole, y);
+  }
 
   // Remarks optional (also shrink-to-fit so it doesn't go outside page)
   if (data.remarks && String(data.remarks).trim()) {
